@@ -62,7 +62,7 @@ You are a Data Engineer in a financial institute. Your task is to calculate and 
   - Create crawler/s
 - **Expected result: Questions (objectives) results should be queryable from Athena**
 - If you encounter issues with reading/writing from/to S3 buckets, it is recommended to add your name as a prefix to the bucket’s name. For example name the bucket: “data-engineer-assignment-my-name”
-- Use the AWS credentials provided in the email to deploy the code
+- Use the AWS credentials provided in the email to deploy the code. **DO NOT COMMIT THEM IN THE CODE.**
 - You can use the template cloudformation and deploy command to deploy the stack file, example:
   ```bash
   aws cloudformation deploy --template-file cloudformation.yml --stack-name my-stack
