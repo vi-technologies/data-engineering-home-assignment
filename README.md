@@ -1,4 +1,4 @@
-# Data Engineering Assignment (pySpark)
+# Data Engineering Assignment (PySpark)
 Before starting to work on the assignment - please make sure you fork this repository.
 
 
