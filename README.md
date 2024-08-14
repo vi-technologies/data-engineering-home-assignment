@@ -33,7 +33,7 @@ You are a Data Engineer in a financial institute. Your task is to calculate and 
 
 2. Which stock was traded with the highest worth - as measured by **closing price * volume** - on average? 
 
-    | ticker | frequency |
+    | ticker | value |
     | ------ | ---------------------- |
     |   |  |
 
