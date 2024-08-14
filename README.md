@@ -31,7 +31,7 @@ You are a Data Engineer in a financial institute. Your task is to calculate and 
    | yyyy-MM-dd  | return of all stocks on that date   |
 
 
-2. Which stock was traded most frequently - as measured by **closing price * volume** - on average? 
+2. Which stock was traded with the highest worth - as measured by **closing price * volume** - on average? 
 
     | ticker | frequency |
     | ------ | ---------------------- |
