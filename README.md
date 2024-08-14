@@ -45,7 +45,7 @@ You are a Data Engineer in a financial institute. Your task is to calculate and 
     |   |                    |
 
 
-4. What were the top three 30-day return dates (% increase in closing price as compared to the closing price 30 days prior) — present ticker and date combinations
+4. What were the top three 30-day return dates as measured by % increase in closing price compared to the closing price 30 days prior? present the top three ticker and date combinations.
 
     | ticker | date |
     | ------ | ---- |
