@@ -12,7 +12,7 @@ You are a Data Engineer in a financial institute. Your task is to calculate and 
 
 
 ## Coding instructions:
-- The file `stock_prices.csv` contains daily closing price of a few stocks on the NYSE/NASDAQ
+- The file `stocks_data.csv` contains daily closing price of a few stocks on the NYSE/NASDAQ
 - Load the file as a DataFrame, Dataset, or RDD and complete the assignment objectives
 - The result of each question should be saved as a separate file in an S3 Bucket
 
