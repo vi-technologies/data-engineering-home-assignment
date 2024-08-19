@@ -12,7 +12,7 @@ aws s3 cp {folder_path}/ s3://cf-templates/{your_name}/ --recursive
 printf '\nUpdating stack...\n\n'
 
 # Define the CloudFormation template file name and file path
-stack_yml="stack.yml"
+stack_yml="{file_path}/stack.yml"
 
 # Display the stack name being processed
 echo "Stack: $stack"
