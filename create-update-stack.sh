@@ -1,25 +1,26 @@
 #!/bin/bash
+# shellcheck disable=SC2006
 
 # Exit immediately if a command exits with a non-zero status
 set -e
 
-# Upload CloudFormation templates to the specified S3 bucket
-# Modify according your solution
-printf '\nUploading Templates...\n\n'
-aws s3 cp {folder_path}/ s3://cf-templates/{your_name}/ --recursive
+# Set AWS credentials as environment variables
+export AWS_ACCESS_KEY_ID=<Add your AWS_ACCESS_KEY_ID>
+export AWS_SECRET_ACCESS_KEY=<Add your AWS_SECRET_ACCESS_KEY>
+
 
 # Notify the user that the stack update process is starting
 printf '\nUpdating stack...\n\n'
 
 # Define the CloudFormation template file name and file path
-stack_yml="{file_path}/stack.yml"
+stack_yml="stack.yml"
+stack=<Add stack name>
 
 # Display the stack name being processed
 echo "Stack: $stack"
 
 # Check if the stack exists by attempting to describe it
 # If the stack doesn't exist, the command will return an error, so we use '|| echo -1' to handle it
-# shellcheck disable=SC2006
 stack_exists=`aws cloudformation describe-stacks --stack-name "$stack" || echo -1`
 
 # If the stack does not exist (indicated by -1), create a new one
