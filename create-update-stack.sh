@@ -4,9 +4,24 @@
 # Exit immediately if a command exits with a non-zero status
 set -e
 
+
+# Load environment variables from .env file
+if [ -f .env ]; then
+  # Using source
+  source .env
+
+  # Alternatively, you can use the dot command
+  # . .env
+fi
+
+# Now you can use the environment variables
+echo "AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID"
+echo "AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY"
+echo "STACK_NAME: $STACK_NAME"
+
 # Set AWS credentials as environment variables
-export AWS_ACCESS_KEY_ID=<Add your AWS_ACCESS_KEY_ID>
-export AWS_SECRET_ACCESS_KEY=<Add your AWS_SECRET_ACCESS_KEY>
+export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
 
 
 # Notify the user that the stack update process is starting
@@ -14,8 +29,7 @@ printf '\nUpdating stack...\n\n'
 
 # Define the CloudFormation template file name and file path
 stack_yml="stack.yml"
-stack=<Add stack name>
-
+stack=$STACK_NAME
 # Display the stack name being processed
 echo "Stack: $stack"
 
