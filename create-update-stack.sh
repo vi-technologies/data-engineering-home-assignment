@@ -6,7 +6,7 @@ set -e
 # Upload CloudFormation templates to the specified S3 bucket
 # Modify according your solution
 printf '\nUploading Templates...\n\n'
-aws s3 cp cloudformation/ s3://vi-cf-templates/vi-integrations/ --recursive
+aws s3 cp {folder_path}/ s3://cf-templates/{your_name}/ --recursive
 
 # Notify the user that the stack update process is starting
 printf '\nUpdating stack...\n\n'
