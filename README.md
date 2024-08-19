@@ -68,7 +68,7 @@ You are a Data Engineer in a financial institute. Your task is to calculate and 
   - AWS_ACCESS_KEY_ID
   - AWS_SECRET_ACCESS_KEY
   - STACK_NAME
-- Use the `create-update-stack.sh` in the repo to to deploy your stack file
+- Use the `create-update-stack.sh` in the repo to to deploy your stack file. A demo stack file is provided in the repo
   ```bash
   aws cloudformation deploy --template-file cloudformation.yml --stack-name my-stack
   ```
