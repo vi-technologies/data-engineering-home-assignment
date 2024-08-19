@@ -64,7 +64,11 @@ You are a Data Engineer in a financial institute. Your task is to calculate and 
 - If you encounter issues with reading/writing from/to S3 buckets, it is recommended to add your name as a prefix to the bucket’s name. For example name the bucket: “data-engineer-assignment-my-name”
 - Use the AWS credentials provided in the email to deploy the code. **DO NOT COMMIT THEM IN THE CODE.**
 - Deploy your resources in the **Europe (Frankfurt) eu-central-1**
-- You can use the template cloudformation and deploy command to deploy the stack file, example:
+- Create a local `.env` file with the following environment variables
+  - AWS_ACCESS_KEY_ID
+  - AWS_SECRET_ACCESS_KEY
+  - STACK_NAME
+- Use the `create-update-stack.sh` in the repo to to deploy your stack file
   ```bash
   aws cloudformation deploy --template-file cloudformation.yml --stack-name my-stack
   ```
