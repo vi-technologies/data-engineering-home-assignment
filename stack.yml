@@ -1,48 +1,271 @@
-AWSTemplateFormatVersion: "2010-09-09"
-Description: CloudFormation template to create a Lambda function that prints "Hello, World!".
-
 Resources:
-    LambdaExecutionRole:
-        Type: "AWS::IAM::Role"
-        Properties:
-            AssumeRolePolicyDocument:
-                Version: "2012-10-17"
-                Statement:
-                    - Effect: "Allow"
-                      Principal:
-                          Service:
-                              - "lambda.amazonaws.com"
-                      Action: "sts:AssumeRole"
-            Policies:
-                - PolicyName: "LambdaExecutionPolicy"
-                  PolicyDocument:
-                      Version: "2012-10-17"
-                      Statement:
-                          - Effect: "Allow"
-                            Action:
-                                - "logs:CreateLogGroup"
-                                - "logs:CreateLogStream"
-                                - "logs:PutLogEvents"
-                            Resource: "arn:aws:logs:*:*:*"
+  AssignmentS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: data-engineer-assignment-yuval-dror
 
-    HelloWorldLambda:
-        Type: "AWS::Lambda::Function"
-        Properties:
-            FunctionName: "HelloWorldFunction"
-            Handler: "index.handler"
-            Role: !GetAtt LambdaExecutionRole.Arn
-            Runtime: "python3.9"
-            Code:
-                ZipFile: |
-                    def handler(event, context):
-                        print("Hello, World!")
-            Timeout: 30
-            MemorySize: 128
+  AssignmentGlueServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "glue.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Path: "/"
+      Policies:
+        -
+          PolicyName: "GlueJobExecutionPolicy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "glue:*"
+                Resource: "*"
+              - Effect: "Allow"
+                Action:
+                  - "s3:*"
+                Resource:
+                  - !Sub 'arn:aws:s3:::${AssignmentS3Bucket}'
+                  - !Sub 'arn:aws:s3:::${AssignmentS3Bucket}/*'
 
-Outputs:
-    LambdaFunctionName:
-        Description: "Name of the Lambda function created"
-        Value: !Ref HelloWorldLambda
-    LambdaExecutionRoleArn:
-        Description: "ARN of the Lambda execution role"
-        Value: !GetAtt LambdaExecutionRole.Arn
+  AssignmentGlueDatabase:
+    Type: 'AWS::Glue::Database'
+    Properties:
+      CatalogId: !Ref 'AWS::AccountId'
+      DatabaseInput:
+        Name: assignment_database_yuval_dror
+
+  GlueInputTable:
+    Type: 'AWS::Glue::Table'
+    Properties:
+      CatalogId: !Sub '${AWS::AccountId}'
+      DatabaseName: !Ref AssignmentGlueDatabase
+      TableInput:
+        Name: stocks_data
+        StorageDescriptor:
+          Columns:
+            - Name: 'date'
+              Type: 'date'
+            - Name: 'open'
+              Type: 'float'
+            - Name: 'high'
+              Type: 'float'
+            - Name: 'low'
+              Type: 'float'
+            - Name: 'close'
+              Type: 'float'
+            - Name: 'volume'
+              Type: 'float'
+            - Name: 'ticker'
+              Type: 'string'
+          Location: !Sub 's3://${AssignmentS3Bucket}/data/stocks_data/'  # Path in S3 where the data is stored
+          InputFormat: 'org.apache.hadoop.mapred.TextInputFormat'
+          OutputFormat: 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat'
+          SerdeInfo:
+            SerializationLibrary: 'org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe'
+            Parameters:
+              field.delim: ',' 
+          Compressed: false
+          StoredAsSubDirectories: false
+        TableType: 'EXTERNAL_TABLE'
+
+  GlueOutputAvgDailyReturnsTable:
+    Type: 'AWS::Glue::Table'
+    Properties:
+      CatalogId: !Sub '${AWS::AccountId}'
+      DatabaseName: !Ref AssignmentGlueDatabase
+      TableInput:
+        Name: avg_daily_returns
+        StorageDescriptor:
+          Columns:
+            - Name: 'date'
+              Type: 'date'
+            - Name: 'average_return'
+              Type: 'float'
+          Location: !Sub 's3://${AssignmentS3Bucket}/data/output/avg_daily_returns'  # Path in S3 where the data is stored
+          InputFormat: 'org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat'
+          OutputFormat: 'org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat'
+          SerdeInfo:
+            SerializationLibrary: 'org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe'
+          Compressed: false
+          StoredAsSubDirectories: false
+        TableType: 'EXTERNAL_TABLE'
+
+  GlueOutputHighestWorthTable:
+    Type: 'AWS::Glue::Table'
+    Properties:
+      CatalogId: !Sub '${AWS::AccountId}'
+      DatabaseName: !Ref AssignmentGlueDatabase
+      TableInput:
+        Name: highest_worth
+        StorageDescriptor:
+          Columns:
+            - Name: 'ticker'
+              Type: 'string'
+            - Name: 'value'
+              Type: 'float'
+          Location: !Sub 's3://${AssignmentS3Bucket}/data/output/highest_worth'  # Path in S3 where the data is stored
+          InputFormat: 'org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat'
+          OutputFormat: 'org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat'
+          SerdeInfo:
+            SerializationLibrary: 'org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe'
+          Compressed: false
+          StoredAsSubDirectories: false
+        TableType: 'EXTERNAL_TABLE'
+
+  GlueOutputAnnualizedVolatilityTable:
+    Type: 'AWS::Glue::Table'
+    Properties:
+      CatalogId: !Sub '${AWS::AccountId}'
+      DatabaseName: !Ref AssignmentGlueDatabase
+      TableInput:
+        Name: annualized_volatility
+        StorageDescriptor:
+          Columns:
+            - Name: 'ticker'
+              Type: 'string'
+            - Name: 'standard_deviation'
+              Type: 'float'
+            - Name: 'annualized_standard_deviation'
+              Type: 'float'
+          Location: !Sub 's3://${AssignmentS3Bucket}/data/output/annualized_volatility'  # Path in S3 where the data is stored
+          InputFormat: 'org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat'
+          OutputFormat: 'org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat'
+          SerdeInfo:
+            SerializationLibrary: 'org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe'
+          Compressed: false
+          StoredAsSubDirectories: false
+        TableType: 'EXTERNAL_TABLE'
+
+  GlueOutput30DaysReturnsTable:
+    Type: 'AWS::Glue::Table'
+    Properties:
+      CatalogId: !Sub '${AWS::AccountId}'
+      DatabaseName: !Ref AssignmentGlueDatabase
+      TableInput:
+        Name: 30_days_returns
+        StorageDescriptor:
+          Columns:
+            - Name: 'ticker'
+              Type: 'string'
+            - Name: 'date'
+              Type: 'string'
+            - Name: '30_days_change'
+              Type: 'float'
+          Location: !Sub 's3://${AssignmentS3Bucket}/data/output/30_days_returns'  # Path in S3 where the data is stored
+          InputFormat: 'org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat'
+          OutputFormat: 'org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat'
+          SerdeInfo:
+            SerializationLibrary: 'org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe'
+          Compressed: false
+          StoredAsSubDirectories: false
+        TableType: 'EXTERNAL_TABLE'
+
+  StockPricesGlueJob:
+    Type: AWS::Glue::Job
+    Properties:
+      Name: "assignment_glue_job_yuval_dror"
+      Command:
+        Name: glueetl
+        ScriptLocation:
+          !Sub "s3://${AssignmentS3Bucket}/scripts/stock_prices_glue_job.py"
+      DefaultArguments:
+        "--TempDir": !Sub "s3://${AssignmentS3Bucket}/temp"
+        "--job-language": "python"
+      MaxCapacity: 1
+      GlueVersion: 3.0
+      MaxRetries: 0
+      Role: !GetAtt AssignmentGlueServiceRole.Arn
+
+  InitialCrawler:
+    Type: 'AWS::Glue::Crawler'
+    Properties:
+      Role: !GetAtt AssignmentGlueServiceRole.Arn
+      DatabaseName: !Ref AssignmentGlueDatabase
+      Targets:
+        CatalogTargets:
+        - DatabaseName: !Ref AssignmentGlueDatabase
+          Tables:
+            - !Ref GlueInputTable
+      SchemaChangePolicy:
+        UpdateBehavior: UPDATE_IN_DATABASE
+        DeleteBehavior: LOG 
+      Name: stocks_data_crawler
+
+  OutputAvgDailyReturnsCrawler:
+    Type: 'AWS::Glue::Crawler'
+    Properties:
+      Role: !GetAtt AssignmentGlueServiceRole.Arn
+      DatabaseName: !Ref AssignmentGlueDatabase
+      Targets:
+        CatalogTargets:
+        - DatabaseName: !Ref AssignmentGlueDatabase
+          Tables:
+            - !Ref GlueOutputAvgDailyReturnsTable
+      SchemaChangePolicy:
+        UpdateBehavior: UPDATE_IN_DATABASE
+        DeleteBehavior: LOG 
+      Name: avg_daily_returns_crawler
+
+
+  OutputHighestWorthCrawler:
+    Type: 'AWS::Glue::Crawler'
+    Properties:
+      Role: !GetAtt AssignmentGlueServiceRole.Arn
+      DatabaseName: !Ref AssignmentGlueDatabase
+      Targets:
+        CatalogTargets:
+        - DatabaseName: !Ref AssignmentGlueDatabase
+          Tables:
+            - !Ref GlueOutputHighestWorthTable
+      SchemaChangePolicy:
+        UpdateBehavior: UPDATE_IN_DATABASE
+        DeleteBehavior: LOG 
+      Name: highest_worth_crawler
+
+
+  OutputAnnualizedVolatilityCrawler:
+    Type: 'AWS::Glue::Crawler'
+    Properties:
+      Role: !GetAtt AssignmentGlueServiceRole.Arn
+      DatabaseName: !Ref AssignmentGlueDatabase
+      Targets:
+        CatalogTargets:
+        - DatabaseName: !Ref AssignmentGlueDatabase
+          Tables:
+            - !Ref GlueOutputAnnualizedVolatilityTable
+      SchemaChangePolicy:
+        UpdateBehavior: UPDATE_IN_DATABASE
+        DeleteBehavior: LOG 
+      Name: annualized_volatility_crawler
+
+  Output30DaysReturnsCrawler:
+    Type: 'AWS::Glue::Crawler'
+    Properties:
+      Role: !GetAtt AssignmentGlueServiceRole.Arn
+      DatabaseName: !Ref AssignmentGlueDatabase
+      Targets:
+        CatalogTargets:
+        - DatabaseName: !Ref AssignmentGlueDatabase
+          Tables:
+            - !Ref GlueOutput30DaysReturnsTable
+      SchemaChangePolicy:
+        UpdateBehavior: UPDATE_IN_DATABASE
+        DeleteBehavior: LOG 
+      Name: 30_days_returns_crawler
+
+  AssignmentAthenaWorkGroup:
+    Type: 'AWS::Athena::WorkGroup'
+    Properties:
+      Name: assignment_athena_workgroup
+      State: ENABLED
+      WorkGroupConfiguration:
+        ResultConfiguration:
+          OutputLocation: !Sub 's3://${AssignmentS3Bucket}/athena-results/'
