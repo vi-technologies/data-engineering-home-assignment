@@ -1,48 +1,116 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: CloudFormation template to create a Lambda function that prints "Hello, World!".
+Description: CloudFormation stack to create a IAM Role, Glue Job, Glue Catalog Database, and Glue Crawler to analyze stocks raw data.
+
+Parameters:
+  BucketName:
+    Type: String
+    Default: "data-engineer-assignment-tal"
+    Description: "The name of the existing S3 bucket where the folder will be created."
+
+  GlueJobName:
+    Type: String
+    Default: "data-engineer-tal-glue-job"
+    Description: "The name of the Glue Job."
+
+  GlueJobTriggerName:
+    Type: String
+    Default: "data-engineer-tal-glue-job-trigger"
+    Description: "The name of the Glue Job trigger."
+
+  GlueDatabaseName:
+    Type: String
+    Default: "data-engineer-tal-glue-db"
+    Description: "The Name of the Glue Catalog Database."
+
+  GlueCrawlerName:
+    Type: String
+    Default: "data-engineer-tal-glue-crawler"
+    Description: "The Name of the Glue Crawler."
+
+  GlueCrawlerTriggerName:
+    Type: String
+    Default: "data-engineer-tal-glue-crawler-trigger"
+    Description: "The Name of the Glue Crawler trigger."
 
 Resources:
-    LambdaExecutionRole:
-        Type: "AWS::IAM::Role"
-        Properties:
-            AssumeRolePolicyDocument:
-                Version: "2012-10-17"
-                Statement:
-                    - Effect: "Allow"
-                      Principal:
-                          Service:
-                              - "lambda.amazonaws.com"
-                      Action: "sts:AssumeRole"
-            Policies:
-                - PolicyName: "LambdaExecutionPolicy"
-                  PolicyDocument:
-                      Version: "2012-10-17"
-                      Statement:
-                          - Effect: "Allow"
-                            Action:
-                                - "logs:CreateLogGroup"
-                                - "logs:CreateLogStream"
-                                - "logs:PutLogEvents"
-                            Resource: "arn:aws:logs:*:*:*"
 
-    HelloWorldLambda:
-        Type: "AWS::Lambda::Function"
-        Properties:
-            FunctionName: "HelloWorldFunction"
-            Handler: "index.handler"
-            Role: !GetAtt LambdaExecutionRole.Arn
-            Runtime: "python3.9"
-            Code:
-                ZipFile: |
-                    def handler(event, context):
-                        print("Hello, World!")
-            Timeout: 30
-            MemorySize: 128
+  GlueS3IAMRole:
+    Type: "AWS::IAM::Role"
+    Properties: 
+      RoleName: "GlueS3AccessRole"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service: "glue.amazonaws.com"
+            Action: "sts:AssumeRole"
+      ManagedPolicyArns: 
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+        - arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole
+
+  GlueDatabase:
+    Type: AWS::Glue::Database
+    Properties:
+      DatabaseInput:
+        Name: !Ref GlueDatabaseName
+      CatalogId: !Ref AWS::AccountId
+
+  GlueJob:        
+    Type: AWS::Glue::Job
+    Properties:
+      Name: !Ref GlueJobName
+      Command: 
+        Name: "glueetl"
+        PythonVersion: 3
+        ScriptLocation: !Sub "s3://${BucketName}/spark_jobs/stocks-pyspark-glue-job.py"
+      GlueVersion: 4.0
+      Role: !GetAtt GlueS3IAMRole.Arn
+      WorkerType: "G.1X"
+      NumberOfWorkers: 2
+      Timeout: 30
+      MaxRetries: 2
+
+  GlueJobTrigger:
+    Type: AWS::Glue::Trigger
+    Properties:
+      Name: "GlueJobScheduledTrigger"
+      Type: "SCHEDULED"
+      Schedule: "cron(0 20 * * ? *)" 
+      Actions:
+        - JobName: !Ref GlueJobName
+
+  GlueCrawler:
+    Type: AWS::Glue::Crawler
+    Properties:
+      Role: !GetAtt GlueS3IAMRole.Arn
+      DatabaseName: !Ref GlueDatabaseName
+      Targets:
+        S3Targets:
+          - Path: !Sub "s3://${BucketName}/processed_data/"
+      SchemaChangePolicy:
+        UpdateBehavior: "UPDATE_IN_DATABASE"
+        DeleteBehavior: "DEPRECATE_IN_DATABASE"
+      TablePrefix: "stocks_data_"
+      Name: !Ref GlueCrawlerName
+      Schedule:
+        ScheduleExpression: "cron(30 20 * * ? *)" 
 
 Outputs:
-    LambdaFunctionName:
-        Description: "Name of the Lambda function created"
-        Value: !Ref HelloWorldLambda
-    LambdaExecutionRoleArn:
-        Description: "ARN of the Lambda execution role"
-        Value: !GetAtt LambdaExecutionRole.Arn
+
+  GlueS3IAMRoleName:
+    Description: "Name of the Glue and S3 IAM Role"
+    Value: !Ref GlueS3IAMRole
+
+  GlueJobName:
+    Description: "Name of the Glue script created"
+    Value: !Ref GlueJob
+
+  GlueJobTriggerName:
+    Description: "Name of the Glue job trigger"
+    Value: !Ref GlueJobTrigger
+
+  GlueCrawlerName:
+    Description: "Name of the Glue Crawler created"
+    Value: !Ref GlueCrawler
+    
