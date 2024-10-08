@@ -1,48 +1,268 @@
-AWSTemplateFormatVersion: "2010-09-09"
-Description: CloudFormation template to create a Lambda function that prints "Hello, World!".
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AWS CloudFormation Template to create AWS Glue Crawler, Glue Job, and IAM Role.'
+
+Parameters:
+  AWSIAMRoleName:
+    Description: Role Name for AWS Glue Job
+    Type: String
+    Default: DataEngineerAssigmentDimatGlueRole
+
+  AWSGlueJobName:
+    Description: AWS Glue Job Name
+    Type: String
+    Default: data-engineering-assignment-dimat-glue-job
+
+  AWSGlueCrawlerName:
+    Description: AWS Glue Crawler name
+    Type: String
+    Default: data-engineering-dimat-data-crawler
+
+  AWSGlueCatalogName:
+    Description: "Name of the data Catalog database"
+    Type: String
+    Default: data-engineering-dimat_db
+
+  AWSGlueDatabaseName:
+    Description: "The Name of the Glue Catalog Database."
+    Type: String
+    Default: "data-engineering-dimat-glue-db"
+
+  GlueJobScriptLocation:
+    Description: AWS Glue job script location
+    Type: String
+    Default: 's3://data-engineer-assignment-dimatru/script/stocks_analysis_etl.py'
+
+  CrawlerS3Path:
+    Description: Target file path for AWS Crawler
+    Type: String
+    Default: 's3://data-engineer-assignment-dimatru/output/'
+
+  TableAvgDailyReturnS3Path:
+    Description: Target S3 path for avg_daily_return table data
+    Type: String
+    Default: 's3://data-engineer-assignment-dimatru/output/avg_daily_return/'
+
+  TableStockHighestWorthS3Path:
+    Description: Target S3 path for stock_highest_worth table data
+    Type: String
+    Default: 's3://data-engineer-assignment-dimatru/output/stock_highest_worth/'
+
+  TableStockVolatilityS3Path:
+    Description: Target S3 path for stock_volatility table data
+    Type: String
+    Default: 's3://data-engineer-assignment-dimatru/output/stock_volatility/'
+
+  TableTop3ReturnS3Path:
+    Description: Target S3 path for top_3_30_day_return table data
+    Type: String
+    Default: 's3://data-engineer-assignment-dimatru/output/top_3_30_day_return/'
 
 Resources:
-    LambdaExecutionRole:
-        Type: "AWS::IAM::Role"
-        Properties:
-            AssumeRolePolicyDocument:
-                Version: "2012-10-17"
-                Statement:
-                    - Effect: "Allow"
-                      Principal:
-                          Service:
-                              - "lambda.amazonaws.com"
-                      Action: "sts:AssumeRole"
-            Policies:
-                - PolicyName: "LambdaExecutionPolicy"
-                  PolicyDocument:
-                      Version: "2012-10-17"
-                      Statement:
-                          - Effect: "Allow"
-                            Action:
-                                - "logs:CreateLogGroup"
-                                - "logs:CreateLogStream"
-                                - "logs:PutLogEvents"
-                            Resource: "arn:aws:logs:*:*:*"
+  # Creating IAM Role and attaching policies
+  AWSIAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref AWSIAMRoleName
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - glue.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+      Path: "/"
 
-    HelloWorldLambda:
-        Type: "AWS::Lambda::Function"
-        Properties:
-            FunctionName: "HelloWorldFunction"
-            Handler: "index.handler"
-            Role: !GetAtt LambdaExecutionRole.Arn
-            Runtime: "python3.9"
-            Code:
-                ZipFile: |
-                    def handler(event, context):
-                        print("Hello, World!")
-            Timeout: 30
-            MemorySize: 128
+  # Create Glue Catalog Database
+  AWSGlueCatalog:
+    Type: 'AWS::Glue::Database'
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseInput:
+        Name: !Ref AWSGlueCatalogName
+        Description: Database for Glue data
+
+  # Create AWS Glue Job
+  AWSGlueJob:
+    Type: AWS::Glue::Job
+    Properties:
+      Command:
+        Name: glueetl
+        PythonVersion: '3'
+        ScriptLocation: !Ref GlueJobScriptLocation
+      ExecutionProperty:
+        MaxConcurrentRuns: 1
+      MaxRetries: 2
+      Role: !Ref AWSIAMRole
+      Name: !Ref AWSGlueJobName
+      GlueVersion: '4.0'
+      WorkerType: 'G.1X'
+      NumberOfWorkers: 4
+
+  # Create AWS Glue Crawler
+  AWSGlueCrawler:
+    Type: 'AWS::Glue::Crawler'
+    Properties:
+      Name: !Ref AWSGlueCrawlerName
+      Role: !GetAtt AWSIAMRole.Arn
+      DatabaseName: !Ref AWSGlueCatalogName
+      Targets:
+        S3Targets:
+          - Path: !Ref CrawlerS3Path
+      SchemaChangePolicy:
+        UpdateBehavior: UPDATE_IN_DATABASE
+        DeleteBehavior: LOG
+
+  # Create Glue Catalog Table for avg_daily_return
+  AWSGlueTableAvgDailyReturn:
+    Type: AWS::Glue::Table
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseName: !Ref AWSGlueCatalogName
+      TableInput:
+        Name: avg_daily_return
+        Description: 'Table for average daily return  data'
+        TableType: EXTERNAL_TABLE
+        Parameters:
+          classification: parquet
+        StorageDescriptor:
+          Columns:
+            - Name: date
+              Type: date
+            - Name: average_return
+              Type: double
+          Location: !Ref TableAvgDailyReturnS3Path
+          InputFormat: "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat"
+          OutputFormat: "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat"
+          Compressed: false
+          SerdeInfo:
+            SerializationLibrary: "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe"
+            Parameters:
+              "serialization.format": "1"
+          StoredAsSubDirectories: false
+
+
+
+
+
+# Create Glue Catalog Table for stock_highest_worth_dynamic
+  AWSGlueTableStockHighestWorth:
+    Type: AWS::Glue::Table
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseName: !Ref AWSGlueCatalogName
+      TableInput:
+        Name: stock_highest_worth
+        Description: 'Table for stock traded with highest worth'
+        TableType: EXTERNAL_TABLE
+        Parameters:
+          classification: parquet
+        StorageDescriptor:
+          Columns:
+            - Name: ticker
+              Type: string
+            - Name: value
+              Type: double
+          Location: !Ref TableStockHighestWorthS3Path
+          InputFormat: "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat"
+          OutputFormat: "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat"
+          Compressed: false
+          SerdeInfo:
+            SerializationLibrary: "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe"
+            Parameters:
+              "serialization.format": "1"
+          StoredAsSubDirectories: false
+
+
+# Create Glue Catalog Table for stock_volatility_dynamic
+  AWSGlueTableStockVolatility:
+    Type: AWS::Glue::Table
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseName: !Ref AWSGlueCatalogName
+      TableInput:
+        Name: stock_volatility
+        Description: 'Table for most volatile stocks'
+        TableType: EXTERNAL_TABLE
+        Parameters:
+          classification: parquet
+        StorageDescriptor:
+          Columns:
+            - Name: ticker
+              Type: string
+            - Name: standard_deviation
+              Type: double
+          Location: !Ref TableStockVolatilityS3Path
+          InputFormat: "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat"
+          OutputFormat: "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat"
+          Compressed: false
+          SerdeInfo:
+            SerializationLibrary: "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe"
+            Parameters:
+              "serialization.format": "1"
+          StoredAsSubDirectories: false
+
+# Create Glue Catalog Table for top_3_30_day_return_dynamic
+  AWSGlueTableTop3Return:
+    Type: AWS::Glue::Table
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseName: !Ref AWSGlueCatalogName
+      TableInput:
+        Name: top_3_30_day_return
+        Description: 'Table for top 3 30-day return dates for stocks'
+        TableType: EXTERNAL_TABLE
+        Parameters:
+          classification: parquet
+        StorageDescriptor:
+          Columns:
+            - Name: ticker
+              Type: string
+            - Name: date
+              Type: date
+          Location: !Ref TableTop3ReturnS3Path
+          InputFormat: "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat"
+          OutputFormat: "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat"
+          Compressed: false
+          SerdeInfo:
+            SerializationLibrary: "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe"
+            Parameters:
+              "serialization.format": "1"
+          StoredAsSubDirectories: false
 
 Outputs:
-    LambdaFunctionName:
-        Description: "Name of the Lambda function created"
-        Value: !Ref HelloWorldLambda
-    LambdaExecutionRoleArn:
-        Description: "ARN of the Lambda execution role"
-        Value: !GetAtt LambdaExecutionRole.Arn
+  AWSIAMRole:
+    Description: IAM Role created using CloudFormation Template.
+    Value: !Ref AWSIAMRole
+
+  AWSGlueCatalog:
+    Description: AWS Glue Catalog Database created using CloudFormation Template.
+    Value: !Ref AWSGlueCatalog
+
+  AWSGlueJob:
+    Description: AWS Glue Job created using CloudFormation Template.
+    Value: !Ref AWSGlueJob
+
+  AWSGlueCrawler:
+    Description: AWS Glue Crawler created using CloudFormation Template.
+    Value: !Ref AWSGlueCrawler
+
+  AWSGlueTableAvgDailyReturn:
+    Description: Glue Table avg_daily_return created using CloudFormation Template.
+    Value: !Ref AWSGlueTableAvgDailyReturn
+
+
+  AWSGlueTableStockHighestWorth:
+    Description: Glue Table stock_highest_worth created using CloudFormation Template.
+    Value: !Ref AWSGlueTableStockHighestWorth
+
+  AWSGlueTableStockVolatility:
+    Description: Glue Table stock_volatility created using CloudFormation Template.
+    Value: !Ref AWSGlueTableStockVolatility
+
+  AWSGlueTableTop3Return:
+    Description: Glue Table top_3_30_day_return created using CloudFormation Template.
+    Value: !Ref AWSGlueTableTop3Return
