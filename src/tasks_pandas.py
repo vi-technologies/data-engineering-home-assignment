@@ -1,9 +1,8 @@
 import os
-from utils import load_and_prepare_data, save_to_csv
+from utils import load_and_prepare_data_pandas, save_to_csv
 
 
 def calc_question_1(df):
-    df["close"] = df["close"].fillna(method="ffill").fillna(method="bfill")
     df["daily_return"] = df.groupby("ticker")["close"].pct_change()
     df = df.dropna(subset=["daily_return"])
     result = df.groupby(["ticker", "Date"])["daily_return"].mean().reset_index()
@@ -64,7 +63,7 @@ if __name__ == "__main__":
         os.path.dirname(csv_file_path), "output", "question_1_results.csv"
     )
 
-    data = load_and_prepare_data(csv_file_path)
+    data = load_and_prepare_data_pandas(csv_file_path)
     average_daily_return = calc_question_1(data)
     save_to_csv(average_daily_return, output_file_path)
 
@@ -72,7 +71,7 @@ if __name__ == "__main__":
     output_file_path = os.path.join(
         os.path.dirname(csv_file_path), "output", "question_2_results.csv"
     )
-    data = load_and_prepare_data(csv_file_path)
+    data = load_and_prepare_data_pandas(csv_file_path)
     highest_worth_stock = calc_question_2(data)
     save_to_csv(highest_worth_stock, output_file_path)
 
@@ -80,7 +79,7 @@ if __name__ == "__main__":
     output_file_path = os.path.join(
         os.path.dirname(csv_file_path), "output", "question_3_results.csv"
     )
-    data = load_and_prepare_data(csv_file_path)
+    data = load_and_prepare_data_pandas(csv_file_path)
     most_volatile_stock = calc_question_3(data)
     save_to_csv(most_volatile_stock, output_file_path)
 
@@ -88,6 +87,6 @@ if __name__ == "__main__":
     output_file_path = os.path.join(
         os.path.dirname(csv_file_path), "output", "question_4_results.csv"
     )
-    data = load_and_prepare_data(csv_file_path)
+    data = load_and_prepare_data_pandas(csv_file_path)
     top_3_30_day_returns = calc_question_4(data)
     save_to_csv(top_3_30_day_returns, output_file_path)
